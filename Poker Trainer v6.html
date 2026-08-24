@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Poker Decision Trainer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
+
+  :root{
+    --bg-deep:#0a0a12;
+    --bg-mid:#12121e;
+    --accent:#7c5cff;
+    --accent2:#00e5c7;
+    --accent3:#ff5c9e;
+    --card-bg:#0f2b22;
+    --card-border:rgba(255,255,255,0.10);
+    --text:#f2f2f7;
+    --text-dim:#8f8fa8;
+    --win:#00e5a0;
+    --lose:#ff4d6d;
+  }
+  *{box-sizing:border-box;}
+  html{ height:auto; }
+  body{
+    margin:0; min-height:100vh; height:auto;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(0,229,199,0.16), transparent 45%),
+      radial-gradient(circle at 85% 15%, rgba(124,92,255,0.14), transparent 45%),
+      radial-gradient(circle at 50% 100%, rgba(0,180,120,0.18), transparent 55%),
+      linear-gradient(160deg, #0c3327 0%, #082820 45%, #051d17 100%);
+    font-family:'Inter', sans-serif; color:var(--text);
+    display:flex; flex-direction:column; align-items:center; padding:28px 16px 70px;
+  }
+  .rail{
+    width:100%; max-width:820px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    border:1px solid var(--card-border);
+    border-radius:26px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 30px 80px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
+    padding:28px 26px 34px;
+    position:relative;
+    overflow:hidden;
+  }
+  .rail::before{
+    content:'';
+    position:absolute; top:-120px; left:50%; transform:translateX(-50%);
+    width:500px; height:240px;
+    background:radial-gradient(ellipse, rgba(0,229,160,0.3), transparent 70%);
+    pointer-events:none;
+  }
+
+  .scenario-select-row{ display:flex; justify-content:center; margin-bottom:20px; position:relative; z-index:1; }
+  select#scenarioSelect{
+    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:14px;
+    padding:12px 40px 12px 18px; border-radius:14px; border:1px solid var(--card-border);
+    background:var(--card-bg) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%238f8fa8" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>') no-repeat right 14px center;
+    color:var(--text); cursor:pointer; max-width:100%; appearance:none; -webkit-appearance:none;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+    transition: border-color .15s ease;
+  }
+  select#scenarioSelect:hover{ border-color:var(--accent); }
+  select#scenarioSelect option{ background:#161625; color:var(--text); }
+
+  h1{
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:24px; text-align:center;
+    letter-spacing:-0.3px; margin:0 0 4px; position:relative; z-index:1;
+    background:linear-gradient(90deg, var(--accent2), var(--accent));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .subtitle{
+    text-align:center; font-size:13px; color:var(--text-dim); margin:0 0 22px;
+    letter-spacing:0.3px; position:relative; z-index:1;
+  }
+
+  .scoreboard{ display:flex; justify-content:center; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; position:relative; z-index:1; }
+  .score-pill{
+    background:linear-gradient(135deg, rgba(124,92,255,0.25), rgba(0,229,199,0.15));
+    border:1px solid rgba(124,92,255,0.4); border-radius:999px;
+    padding:9px 20px; font-family:'Space Grotesk', sans-serif; font-size:16px; font-weight:700; color:var(--text);
+  }
+  .rate-pill{
+    background:var(--card-bg); border:1px solid var(--card-border); border-radius:999px;
+    padding:9px 18px; font-size:13.5px; color:var(--text-dim);
+  }
+  .rate-pill b{color:var(--accent2); font-weight:700;}
+
+  .reset-row{ display:flex; justify-content:center; gap:8px; margin-bottom:14px; flex-wrap:wrap; position:relative; z-index:1; }
+  .reset-btn{
+    background:transparent; border:1px solid var(--card-border); color:var(--text-dim);
+    padding:7px 14px; border-radius:999px; font-size:12px; cursor:pointer;
+    transition:all .15s ease; font-family:'Inter', sans-serif; font-weight:500;
+  }
+  .reset-btn:hover{border-color:var(--lose); color:var(--lose); background:rgba(255,77,109,0.08);}
+  .reset-btn.stats-btn:hover{border-color:var(--accent2); color:var(--accent2); background:rgba(0,229,199,0.08);}
+
+  .stats-panel{
+    max-width:620px; margin:0 auto 22px;
+    background:linear-gradient(160deg, rgba(124,92,255,0.1), rgba(255,255,255,0.02));
+    border:1px solid var(--card-border); border-radius:18px; padding:20px 22px;
+    display:none; position:relative; z-index:1;
+    animation: slideDown .25s ease;
+  }
+  @keyframes slideDown{ from{opacity:0; transform:translateY(-8px);} to{opacity:1; transform:translateY(0);} }
+  .stats-panel.open{ display:block; }
+  .stats-panel h3{
+    font-family:'Space Grotesk', sans-serif; color:var(--text); margin:0 0 14px; font-size:15px;
+    text-align:center; letter-spacing:0.3px; text-transform:uppercase; opacity:0.9;
+  }
+  .stats-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:8px 4px; border-bottom:1px solid rgba(255,255,255,0.06); font-size:13px;
+  }
+  .stats-row:last-of-type{ border-bottom:none; }
+  .stats-row.main{
+    font-weight:700; font-size:14.5px; padding:10px 12px; border-radius:10px; margin-bottom:4px;
+    background:rgba(124,92,255,0.12); border-bottom:none;
+  }
+  .stats-row .stats-name{ color:var(--text-dim); }
+  .stats-row.main .stats-name{ color:var(--text); }
+  .stats-row .stats-nums{ color:var(--text-dim); font-variant-numeric:tabular-nums; }
+  .stats-row.main .stats-nums{ color:var(--accent2); font-weight:700; }
+  .stats-note{
+    margin-top:14px; padding-top:14px; border-top:1px dashed var(--card-border);
+    font-size:12px; color:var(--text-dim); line-height:1.6;
+  }
+  .stats-note b{ color:var(--accent2); }
+
+  .pot-display{ text-align:center; margin-bottom:22px; position:relative; z-index:1; }
+  .pot-display .pot-label{ font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:var(--text-dim); display:block; margin-bottom:4px; }
+  .pot-display .pot-label #potTypeTag{ text-transform:none; letter-spacing:0; font-style:italic; color:var(--accent3); }
+  .pot-display .pot-value{
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:26px;
+    background:linear-gradient(90deg, var(--accent2), #fff);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+
+  .villain-chip{
+    display:inline-flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg, var(--accent3), #c22e6e);
+    border:2px solid rgba(255,255,255,0.25); border-radius:50%; width:48px; height:48px;
+    font-size:11px; font-weight:700; color:#fff;
+    box-shadow:0 6px 16px rgba(255,92,158,0.4);
+    line-height:1.1; text-align:center;
+  }
+  .hero-stack{ text-align:center; margin-top:-16px; margin-bottom:28px; font-size:13px; color:var(--text-dim); position:relative; z-index:1; }
+  .hero-stack b{ font-family:'Space Grotesk', sans-serif; font-size:17px; color:var(--text); }
+
+  .villain-row{ display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:18px; position:relative; z-index:1; }
+  .villain-cards{ display:flex; gap:4px; }
+  .villain-card{
+    width:42px; height:60px; border-radius:7px;
+    background:linear-gradient(135deg, #2a1f45, #1a1230);
+    border:1px solid rgba(124,92,255,0.4);
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,0.2);
+  }
+  .villain-label{ font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; font-weight:600; }
+
+  .zone-label{
+    font-size:11px; text-transform:uppercase; letter-spacing:1.6px; color:var(--text-dim);
+    text-align:center; margin-bottom:12px; font-weight:600; position:relative; z-index:1;
+  }
+
+  .board-row{ display:flex; justify-content:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; position:relative; z-index:1; }
+  .board-tags{ display:flex; justify-content:center; gap:10px; margin-bottom:24px; position:relative; z-index:1; }
+  .board-tag{ width:66px; text-align:center; font-size:10px; letter-spacing:1px; color:var(--text-dim); text-transform:uppercase; font-weight:600; }
+  .board-tag.turn-tag{ color:var(--accent2); font-weight:700; }
+
+  .hand-row{ display:flex; justify-content:center; gap:10px; margin-bottom:28px; position:relative; z-index:1; }
+
+  .card{
+    width:66px; height:92px; background:linear-gradient(160deg, #ffffff, #eeeef7);
+    border-radius:10px;
+    box-shadow:0 10px 24px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(0,0,0,0.04);
+    position:relative; display:flex; flex-direction:column; justify-content:space-between;
+    padding:7px 8px; font-family:'Space Grotesk', sans-serif;
+    transition: transform .15s ease;
+    animation: dealIn .3s ease;
+  }
+  @keyframes dealIn{ from{opacity:0; transform:translateY(-10px) scale(0.9);} to{opacity:1; transform:translateY(0) scale(1);} }
+  .card.hero{ box-shadow:0 10px 24px rgba(0,0,0,0.4), inset 0 0 0 2px var(--accent); }
+  .card.turn-card{ box-shadow:0 10px 24px rgba(0,0,0,0.4), inset 0 0 0 2px var(--accent2); }
+  .card .rank{font-size:21px; font-weight:700; line-height:1; color:#151520;}
+  .card .suit-top{font-size:16px; line-height:1;}
+  .card .suit-big{ position:absolute; right:8px; bottom:6px; font-size:27px; }
+  .card.red .rank, .card.red .suit-top, .card.red .suit-big{color:#e5335f;}
+  .card.black .rank, .card.black .suit-top, .card.black .suit-big{color:#151520;}
+
+  .divider{
+    width:70%; max-width:320px; height:1px;
+    background:linear-gradient(to right, transparent, rgba(124,92,255,0.5), transparent);
+    margin:0 auto 26px; position:relative; z-index:1;
+  }
+
+  .buttons{ display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-bottom:22px; position:relative; z-index:1; }
+  .choice-btn{
+    font-family:'Inter', sans-serif; font-weight:600; font-size:14px; padding:14px 20px;
+    border-radius:12px; border:1px solid var(--card-border);
+    background:var(--card-bg);
+    color:var(--text); cursor:pointer; transition: all .15s ease;
+    min-width:112px;
+  }
+  .choice-btn:hover:not(:disabled){
+    border-color:var(--accent); background:rgba(124,92,255,0.12); transform:translateY(-3px);
+    box-shadow:0 8px 20px rgba(124,92,255,0.25);
+  }
+  .choice-btn:disabled{opacity:0.35; cursor:not-allowed;}
+  .choice-btn.correct-flash{
+    border-color:var(--win); background:rgba(0,229,160,0.15);
+    box-shadow:0 0 0 1px var(--win), 0 8px 20px rgba(0,229,160,0.25);
+  }
+  .choice-btn.wrong-flash{
+    border-color:var(--lose); background:rgba(255,77,109,0.12);
+    box-shadow:0 0 0 1px var(--lose);
+  }
+
+  .sizing-panel{ text-align:center; margin-bottom:22px; position:relative; z-index:1; }
+  .sizing-label{ font-size:13px; color:var(--accent2); margin-bottom:12px; font-weight:600; }
+
+  .result-box{
+    max-width:600px; margin:0 auto 26px; text-align:center; font-size:14px; line-height:1.6;
+    padding:18px 20px; border-radius:16px; min-height:26px; transition:all .2s ease;
+    position:relative; z-index:1;
+  }
+  .result-box.win{
+    background:linear-gradient(135deg, rgba(0,229,160,0.14), rgba(0,229,160,0.04));
+    border:1px solid rgba(0,229,160,0.4); color:#c9fff0;
+  }
+  .result-box.lose{
+    background:linear-gradient(135deg, rgba(255,77,109,0.14), rgba(255,77,109,0.04));
+    border:1px solid rgba(255,77,109,0.4); color:#ffd6de;
+  }
+  .result-box.empty{ background:transparent; border:1px dashed var(--card-border); color:var(--text-dim); }
+  .result-box .verdict{ font-weight:700; display:block; margin-bottom:4px; font-family:'Space Grotesk', sans-serif; font-size:15px; letter-spacing:0.2px; }
+  .result-box .detail-line{ display:block; font-style:italic; color:var(--accent2); margin-bottom:8px; opacity:0.9; }
+  .result-box .why-line{ display:block; margin-top:8px; opacity:0.85; }
+
+  .deal-btn{
+    display:block; margin:0 auto; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:15px;
+    letter-spacing:0.3px; padding:15px 36px; border-radius:14px; border:none;
+    background:linear-gradient(120deg, var(--accent), var(--accent2)); color:#0a0a12; cursor:pointer;
+    box-shadow:0 12px 28px -6px rgba(124,92,255,0.5); transition: transform .15s ease, box-shadow .15s ease;
+    position:relative; z-index:1;
+  }
+  .deal-btn:hover{transform:translateY(-3px); box-shadow:0 16px 32px -6px rgba(124,92,255,0.6);}
+  .deal-btn:active{transform:translateY(0);}
+
+  .hidden{ display:none !important; }
+
+  @media (max-width:480px){
+    .card{width:54px; height:76px;}
+    .card .rank{font-size:17px;} .card .suit-top{font-size:13px;} .card .suit-big{font-size:21px;}
+    .board-tag{width:54px;}
+    .choice-btn{min-width:96px; padding:12px 12px; font-size:12.5px;}
+    h1{font-size:20px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="rail">
+
+  <div class="scenario-select-row">
+    <select id="scenarioSelect">
+      <option value="flopcbet">Flop : On me CBET</option>
+      <option value="cbet">Flop : Je CBET</option>
+      <option value="turncbet">Turn : J'ai CBET au flop</option>
+      <option value="turncheckcheck">Turn : Check-Check</option>
+    </select>
+  </div>
+
+  <div class="scenario-select-row hidden" id="cbetVariantRow">
+    <select id="cbetVariantSelect">
+      <option value="potlimp">CBET pot limp</option>
+      <option value="potraise">CBET pot raise</option>
+      <option value="potbtn">CBET BTN</option>
+    </select>
+  </div>
+
+  <h1 id="scenarioTitle"></h1>
+  <p class="subtitle" id="scenarioSubtitle"></p>
+
+  <div class="scoreboard">
+    <div class="score-pill" id="scoreDisplay">Score 0/0</div>
+    <div class="rate-pill">Taux de réussite : <b id="rateDisplay">0%</b></div>
+  </div>
+
+  <div class="reset-row">
+    <button class="reset-btn" id="resetSituationBtn">Réinitialiser cette situation</button>
+    <button class="reset-btn" id="resetAllBtn">Réinitialiser tout</button>
+    <button class="reset-btn stats-btn" id="statsToggleBtn">📊 Statistiques</button>
+  </div>
+
+  <div class="stats-panel" id="statsPanel"></div>
+
+  <!-- ===== Vue CBET (Flop : On me CBET) ===== -->
+  <div id="cbetView">
+    <div class="villain-row">
+      <span class="villain-label">Adversaire</span>
+      <div class="villain-cards"><div class="villain-card"></div><div class="villain-card"></div></div>
+      <span class="villain-chip" id="villainChip">-</span>
+    </div>
+
+    <div class="pot-display">
+      <span class="pot-label">Pot <span id="potTypeTag"></span></span>
+      <span class="pot-value" id="potValue">-</span>
+    </div>
+
+    <div class="zone-label">Board</div>
+    <div class="board-row" id="cbetBoardRow"></div>
+
+    <div class="zone-label">Ma main</div>
+    <div class="hand-row" id="cbetHandRow"></div>
+    <div class="hero-stack" id="heroStack">Stack : <b>-</b></div>
+
+    <div class="divider"></div>
+
+    <div class="buttons" id="mainButtons">
+      <button class="choice-btn" data-value="RAISE">Raise vs CBet</button>
+      <button class="choice-btn" data-value="BLUFF">Bluff vs CBet</button>
+      <button class="choice-btn" data-value="CALL">Call CBet</button>
+      <button class="choice-btn" data-value="FOLD">Se coucher vs CBet</button>
+    </div>
+
+    <div class="sizing-panel" id="sizingPanel" style="display:none;">
+      <div class="sizing-label">Bluff validé ! Quelle taille de relance ?</div>
+      <div class="buttons">
+        <button class="choice-btn" data-size="2.2">2.2 BB</button>
+        <button class="choice-btn" data-size="2.5">2.5 BB</button>
+      </div>
+    </div>
+
+    <div class="sizing-panel" id="turnPanel" style="display:none;">
+      <div class="sizing-label" id="turnLabel">La turn tombe...</div>
+      <div class="buttons">
+        <button class="choice-btn" data-turn="TAPIS">Tapis</button>
+        <button class="choice-btn" data-turn="MISE" id="turnMiseBtn">Mise X% pot</button>
+        <button class="choice-btn" data-turn="CHECK">Check</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Vue Turn (Check-Check / J'ai CBET) ===== -->
+  <div id="turnView" class="hidden">
+    <div class="zone-label">Board</div>
+    <div class="board-row" id="turnBoardRow"></div>
+    <div class="board-tags" id="turnBoardTags"></div>
+
+    <div class="zone-label">Ma main</div>
+    <div class="hand-row" id="turnHandRow"></div>
+  </div>
+
+  <!-- ===== Vue Je CBET (flop uniquement) ===== -->
+  <div id="cbetIcbView" class="hidden">
+    <div class="zone-label">Board (Flop)</div>
+    <div class="board-row" id="cbetIcbBoardRow"></div>
+
+    <div class="zone-label">Ma main</div>
+    <div class="hand-row" id="cbetIcbHandRow"></div>
+  </div>
+
+  <div class="divider hidden" id="turnDivider"></div>
+
+  <div class="buttons hidden" id="turnButtons">
+    <button class="choice-btn" data-value="CHECK">CHECK</button>
+    <button class="choice-btn" data-value="55">55%</button>
+    <button class="choice-btn" data-value="75">75%</button>
+    <button class="choice-btn" data-value="85">85%</button>
+  </div>
+
+  <div class="divider hidden" id="cbetIcbDivider"></div>
+
+  <div class="buttons hidden" id="cbetIcbButtons">
+    <button class="choice-btn" data-value="CHECK">Check</button>
+    <button class="choice-btn" data-value="25">25%</button>
+    <button class="choice-btn" data-value="33">33%</button>
+    <button class="choice-btn" data-value="35">35%</button>
+    <button class="choice-btn" data-value="50">50%</button>
+    <button class="choice-btn" data-value="75">75%</button>
+  </div>
+
+  <div class="result-box empty" id="resultBox">Clique sur un bouton pour valider ta décision.</div>
+
+  <button class="deal-btn" id="dealBtn">Nouvelle main</button>
+</div>
+
+<script>
+(function(){
+  const SUITS = ['S','H','D','C'];
+  const SUIT_SYMBOL = {S:'\u2660', H:'\u2665', D:'\u2666', C:'\u2663'};
+  const SUIT_COLOR = {S:'black', H:'red', D:'red', C:'black'};
+  const RANK_LABEL = {11:'J',12:'Q',13:'K',14:'A'};
+  const RANK_WORD = {2:'2',3:'3',4:'4',5:'5',6:'6',7:'7',8:'8',9:'9',10:'10',11:'Valet',12:'Dame',13:'Roi',14:'As'};
+
+  function rankLabel(r){ return RANK_LABEL[r] || String(r); }
+  function rankWord(r){ return RANK_WORD[r] || String(r); }
+  function fmtBB(n){ return (Math.round(n*10)/10) + 'bb'; }
+
+  // ---------- Deck ----------
+  function makeDeck(){
+    const deck = [];
+    for(let r=2;r<=14;r++){ for(const s of SUITS){ deck.push({rank:r, suit:s}); } }
+    return deck;
+  }
+  function shuffle(deck){
+    for(let i=deck.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [deck[i],deck[j]] = [deck[j],deck[i]];
+    }
+    return deck;
+  }
+
+  // ---------- Shared hand-reading utilities ----------
+  function getRankCounts(cards){
+    const counts = {};
+    cards.forEach(c => counts[c.rank] = (counts[c.rank]||0)+1);
+    return counts;
+  }
+  function uniqueRanksWithAceLow(cards){
+    const set = new Set(cards.map(c=>c.rank));
+    if(set.has(14)) set.add(1);
+    return Array.from(set).sort((a,b)=>a-b);
+  }
+  function hasStraightMade(cards){
+    const ranks = uniqueRanksWithAceLow(cards);
+    let run = 1;
+    for(let i=1;i<ranks.length;i++){
+      if(ranks[i] === ranks[i-1]+1){ run++; if(run>=5) return true; }
+      else if(ranks[i] !== ranks[i-1]){ run = 1; }
+    }
+    return false;
+  }
+  function hasFlushMade(cards){
+    const bySuit = {};
+    cards.forEach(c => bySuit[c.suit] = (bySuit[c.suit]||0)+1);
+    return Object.values(bySuit).some(v => v>=5);
+  }
+  function straightHighCard(cards){
+    const ranks = uniqueRanksWithAceLow(cards);
+    let run = 1, bestEnd = null;
+    for(let i=1;i<ranks.length;i++){
+      if(ranks[i] === ranks[i-1]+1){ run++; if(run>=5) bestEnd = ranks[i]; }
+      else if(ranks[i] !== ranks[i-1]){ run = 1; }
+    }
+    return bestEnd;
+  }
+  function flushInfo(cards){
+    const bySuit = {};
+    cards.forEach(c => { (bySuit[c.suit] = bySuit[c.suit]||[]).push(c); });
+    for(const s of SUITS){
+      const list = bySuit[s] || [];
+      if(list.length >= 5) return {suit:s, high: Math.max(...list.map(c=>c.rank))};
+    }
+    return null;
+  }
+  function holeHasRank(hole, rank){
+    return hole.some(c => c.rank === rank || (rank===1 && c.rank===14));
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+  // ================= MODULE 1 : FLOP - ON ME CBET =========================
+  //////////////////////////////////////////////////////////////////////////
+
+  function dealNewFlopCbet(){
+    const deck = shuffle(makeDeck());
+    const flop = deck.slice(0,3);
+    const hole = deck.slice(3,5);
+    const remainingDeck = deck.slice(5);
+
+    const stackBB = Math.floor(Math.random()*20) + 1;
+    const potType = Math.random() < 0.5 ? 'limp' : 'raise';
+    const preflopPot = potType === 'limp' ? 2 : 4;
+    const cbetCategory = Math.random() < 0.5 ? 'cheap' : 'expensive';
+    let cbetPercent = cbetCategory === 'cheap' ? 0.5 : 1.0;
+
+    let cbetAmount = Math.round(preflopPot * cbetPercent * 10) / 10;
+    let cbetCapped = false;
+    if(cbetAmount >= stackBB){ cbetAmount = stackBB; cbetCapped = true; }
+    const potAfterCbet = Math.round((preflopPot + cbetAmount) * 10) / 10;
+
+    return {flop, hole, remainingDeck, stackBB, potType, preflopPot, cbetCategory, cbetAmount, cbetCapped, potAfterCbet};
+  }
+
+  function tierWordFor3(tier){ return ['1\u00e8re','2e','3e'][tier-1] || (tier+'e'); }
+
+  function detectDrawsFlop(hole, flop){
+    const all = [...hole, ...flop];
+    const result = {realFlushDraw:false, backdoorFlush:false, oesd:false, gutshot:false, backdoorStraight:false};
+
+    const bySuit = {};
+    all.forEach(c => { (bySuit[c.suit] = bySuit[c.suit]||[]).push(c); });
+    for(const s of SUITS){
+      const cards = bySuit[s] || [];
+      const holeOfSuit = hole.filter(c=>c.suit===s);
+      if(holeOfSuit.length === 0) continue;
+      if(cards.length === 4) result.realFlushDraw = true;
+      if(cards.length === 3) result.backdoorFlush = true;
+    }
+
+    const uniqueSet = new Set(uniqueRanksWithAceLow(all));
+    for(let low=1; low<=10; low++){
+      const window = [low, low+1, low+2, low+3, low+4];
+      const present = window.filter(r => uniqueSet.has(r));
+      const holeContribRanks = present.filter(r => holeHasRank(hole, r));
+      if(holeContribRanks.length === 0) continue;
+      if(present.length === 4){
+        const missing = window.find(r => !uniqueSet.has(r));
+        const isOpenEnd = (missing === window[0] || missing === window[4]);
+        if(isOpenEnd) result.oesd = true; else result.gutshot = true;
+      }
+      if(present.length === 3) result.backdoorStraight = true;
+    }
+    return result;
+  }
+
+  function analyzeFlopHand(hole, flop){
+    const all = [...hole, ...flop];
+    const rc = getRankCounts(all);
+    const tripRanks = Object.keys(rc).map(Number).filter(r=>rc[r]===3);
+    const quadRanks = Object.keys(rc).map(Number).filter(r=>rc[r]===4);
+    const pairRanksAll = Object.keys(rc).map(Number).filter(r=>rc[r]===2);
+    const madeStraight = hasStraightMade(all);
+    const madeFlush = hasFlushMade(all);
+
+    if(quadRanks.length>=1) return {kind:'quads', rank:quadRanks[0]};
+    if(tripRanks.length>=1){
+      const otherPair = [...pairRanksAll, ...tripRanks.filter(r=>r!==tripRanks[0])].filter(r=>r!==tripRanks[0]);
+      if(otherPair.length>=1) return {kind:'fullhouse', tripRank:tripRanks[0], pairRank:otherPair.sort((a,b)=>b-a)[0]};
+      return {kind:'trips', rank:tripRanks[0]};
+    }
+    if(madeFlush) { const fi=flushInfo(all); return {kind:'flush', high:fi.high}; }
+    if(madeStraight){ const high = straightHighCard(all); return {kind:'straight', high}; }
+
+    const isPocketPair = hole[0].rank === hole[1].rank;
+    if(isPocketPair){
+      const pairRank = hole[0].rank;
+      const maxFlopRank = Math.max(...flop.map(c=>c.rank));
+      if(pairRank > maxFlopRank) return {kind:'overpair', rank:pairRank};
+      return {kind:'pocket_under', rank:pairRank};
+    }
+
+    const uniqueFlopRanksDesc = Array.from(new Set(flop.map(c=>c.rank))).sort((a,b)=>b-a);
+    const matches = hole.filter(c => flop.some(fc=>fc.rank===c.rank));
+    if(matches.length === 2){
+      const sorted = matches.map(c=>c.rank).sort((a,b)=>b-a);
+      return {kind:'twopair_real', ranks: sorted};
+    }
+    if(matches.length === 1){
+      const matchedRank = matches[0].rank;
+      const kicker = hole.find(c=>c.rank!==matchedRank).rank;
+      const tier = uniqueFlopRanksDesc.indexOf(matchedRank) + 1;
+      return {kind:'pair_matched', tier, rank:matchedRank, kicker};
+    }
+    return {kind:'air'};
+  }
+
+  function overcardInfoFlop(hole, flop){
+    const flopRanks = flop.map(c=>c.rank);
+    const maxFlop = Math.max(...flopRanks);
+    const flopSortedAsc = [...flopRanks].sort((a,b)=>a-b);
+    const twoSmallest = [flopSortedAsc[0], flopSortedAsc[1]];
+    const hasOneOvercardToWholeBoard = hole.some(c => c.rank > maxFlop);
+    const bothAboveTwoSmallest = hole.every(c => c.rank > twoSmallest[0] && c.rank > twoSmallest[1]);
+    return {hasOneOvercardToWholeBoard, bothAboveTwoSmallest, twoSmallest};
+  }
+
+  function describeMadeFlop(made){
+    switch(made.kind){
+      case 'quads': return 'Carr\u00e9 de ' + rankWord(made.rank);
+      case 'fullhouse': return 'Full aux ' + rankWord(made.tripRank) + ' par les ' + rankWord(made.pairRank);
+      case 'trips': return 'Brelan de ' + rankWord(made.rank);
+      case 'flush': return 'Couleur hauteur ' + rankWord(made.high);
+      case 'straight': return 'Quinte hauteur ' + rankWord(made.high);
+      case 'twopair_real': return 'Deux paires (' + rankWord(made.ranks[0]) + ' et ' + rankWord(made.ranks[1]) + ')';
+      case 'overpair': return 'Overpair (paire de ' + rankWord(made.rank) + ')';
+      default: return '';
+    }
+  }
+
+  function describeHandForCallFlop(made, draws, oc){
+    let base;
+    if(made.kind === 'pair_matched'){
+      base = tierWordFor3(made.tier) + ' paire (' + rankWord(made.rank) + '), kicker ' + rankWord(made.kicker);
+    } else if(made.kind === 'pocket_under'){
+      base = 'Pocket pair de ' + rankWord(made.rank) + ' sous le board';
+    } else if(made.kind === 'air'){
+      base = 'Air complet';
+    } else {
+      base = describeMadeFlop(made);
+    }
+    const drawBits = [];
+    if(draws.oesd) drawBits.push('Open-Ended');
+    if(draws.gutshot) drawBits.push('Gutshot');
+    if(draws.realFlushDraw) drawBits.push('Tirage couleur');
+    if(draws.backdoorFlush) drawBits.push('Backdoor couleur');
+    if(draws.backdoorStraight) drawBits.push('Backdoor quinte');
+    if(oc.hasOneOvercardToWholeBoard) drawBits.push('1 overcard au board');
+    if(drawBits.length) base += ' | ' + drawBits.join(', ');
+    return base;
+  }
+
+  function decideFlopCbet(deal){
+    const {hole, flop, potType, stackBB} = deal;
+    const made = analyzeFlopHand(hole, flop);
+    const draws = detectDrawsFlop(hole, flop);
+    const oc = overcardInfoFlop(hole, flop);
+    const cheapCbet = deal.cbetCategory === 'cheap';
+    const valueKickerThreshold = potType === 'limp' ? 8 : 10;
+
+    let isValue = false, valueDetail = '';
+    if(['quads','fullhouse','trips','straight','flush','twopair_real','overpair'].includes(made.kind)){
+      isValue = true; valueDetail = describeMadeFlop(made);
+    } else if(made.kind === 'pair_matched' && made.tier === 1 && made.kicker >= valueKickerThreshold){
+      isValue = true;
+      valueDetail = 'Top paire (' + rankWord(made.rank) + '), kicker ' + rankWord(made.kicker) + ' (\u2265' + valueKickerThreshold + ')';
+    }
+    if(isValue){
+      return {correct:'RAISE', detail:valueDetail,
+        rule:'Top paire kicker ' + valueKickerThreshold + '+ (ou mieux) sur pot ' + (potType==='limp'?'limp\u00e9':'rais\u00e9') + ' = RAISE VALUE.'};
+    }
+
+    if(made.kind === 'air'){
+      const combo1 = draws.backdoorFlush && draws.backdoorStraight && oc.hasOneOvercardToWholeBoard;
+      const combo2 = draws.gutshot && oc.hasOneOvercardToWholeBoard;
+      const combo3 = draws.gutshot && oc.bothAboveTwoSmallest;
+      const bluffCombo = combo1 || combo2 || combo3;
+      if(bluffCombo && stackBB >= 7){
+        let comboDesc;
+        if(combo1) comboDesc = '2 backdoors (couleur + quinte) + 1 overcard (sup\u00e9rieure \u00e0 tout le board)';
+        else if(combo2) comboDesc = 'Gutshot + 1 overcard (sup\u00e9rieure \u00e0 tout le board)';
+        else comboDesc = 'Gutshot + 2 overcards (sup\u00e9rieures aux 2 plus petites du board)';
+        return {correct:'BLUFF', detail:'Air complet, ' + comboDesc + ', stack ' + stackBB + 'bb (\u22657bb)',
+          rule:'Bluff autoris\u00e9 : combo qualifiant + stack \u22657bb.',
+          bluffSizing: stackBB < 10 ? '2.2' : '2.5'};
+      }
+    }
+
+    const hasAnyPair = ['pair_matched','pocket_under'].includes(made.kind);
+    const isTier3NoBackdoor = made.kind === 'pair_matched' && made.tier === 3 && !(draws.backdoorFlush || draws.backdoorStraight);
+
+    if(cheapCbet){
+      const eligible = hasAnyPair || (draws.gutshot && oc.hasOneOvercardToWholeBoard) || draws.oesd || draws.realFlushDraw;
+      if(eligible) return {correct:'CALL', detail:describeHandForCallFlop(made, draws, oc), rule:'CBET pas cher : une paire (peu importe laquelle), ou gutshot+overcard ou mieux = CALL.'};
+    } else {
+      const eligible = (hasAnyPair && !isTier3NoBackdoor) || (draws.oesd && draws.realFlushDraw);
+      if(eligible) return {correct:'CALL', detail:describeHandForCallFlop(made, draws, oc), rule:'CBET cher : une paire (sauf 3e paire sans backdoor), ou Open-Ended + tirage couleur = CALL.'};
+    }
+
+    return {correct:'FOLD', detail:describeHandForCallFlop(made, draws, oc), rule:'Aucun crit\u00e8re de value, bluff ou call rempli = FOLD.'};
+  }
+
+  function heroHasDrawOrMadeOnTurn(hole, boardWithTurn){
+    // Apres un bluff valide au flop, seule une main faite, un Open-Ended ou un vrai
+    // tirage couleur justifient de continuer a miser au turn. Un simple gutshot (~17%
+    // d'equite) ne suffit plus : on part sur CHECK dans ce cas.
+    const all = [...hole, ...boardWithTurn];
+    if(hasStraightMade(all)) return true;
+    if(hasFlushMade(all)) return true;
+    const d = detectDrawsFlop(hole, boardWithTurn);
+    return d.oesd || d.realFlushDraw;
+  }
+
+  function boardIsDrawyOnTurn(boardWithTurn){
+    // Un vrai tirage = 4 cartes (il n'en manque qu'1 pour compléter), pas 3 (= backdoor, il en manque 2).
+    const bySuit = {};
+    boardWithTurn.forEach(c => bySuit[c.suit] = (bySuit[c.suit]||0)+1);
+    const flushPossible = Object.values(bySuit).some(v => v >= 4);
+    const uniqueSet = new Set(uniqueRanksWithAceLow(boardWithTurn));
+    let straightPossible = false;
+    for(let low=1; low<=10; low++){
+      const window = [low, low+1, low+2, low+3, low+4];
+      const present = window.filter(r => uniqueSet.has(r));
+      if(present.length >= 4){ straightPossible = true; break; }
+    }
+    return {isDrawy: flushPossible || straightPossible, flushPossible, straightPossible};
+  }
+
+  function computeTurnDecisionFlopCbet(line, heroRaiseAmount, currentDeal){
+    const preflopPot = currentDeal.preflopPot;
+    const turnPot = Math.round((preflopPot + 2*heroRaiseAmount) * 10) / 10;
+    let remainingStack = Math.round((currentDeal.stackBB - heroRaiseAmount) * 10) / 10;
+    if(remainingStack < 0) remainingStack = 0;
+    const turnCard = currentDeal.remainingDeck[0];
+    const boardWithTurn = [...currentDeal.flop, turnCard];
+
+    let correct, detail, rule;
+    const betPercentLabel = line === 'bluff' ? '55' : '75';
+
+    if(line === 'bluff'){
+      const hasSomething = heroHasDrawOrMadeOnTurn(currentDeal.hole, boardWithTurn);
+      if(!hasSomething){
+        correct = 'CHECK';
+        detail = 'Turn ' + rankWord(turnCard.rank) + ' : pas d\'Open-Ended ni de tirage couleur (ni main faite) dans ma main';
+        rule = 'Ni Open-Ended, ni tirage couleur, ni main faite (un simple gutshot ne suffit plus) = CHECK.';
+      } else {
+        const shove = remainingStack < 1.5 * turnPot;
+        correct = shove ? 'TAPIS' : 'MISE';
+        detail = 'Turn ' + rankWord(turnCard.rank) + ' : Open-Ended / tirage couleur / main form\u00e9e. Stack restant ' + remainingStack + 'bb vs 1.5x pot (' + (1.5*turnPot).toFixed(1) + 'bb)';
+        rule = shove ? 'Stack < 1.5x pot = TAPIS.' : 'Stack \u2265 1.5x pot = MISE 55% POT.';
+      }
+    } else {
+      const shortStack = remainingStack < 1.5 * turnPot;
+      if(shortStack){
+        correct = 'TAPIS';
+        detail = 'Turn ' + rankWord(turnCard.rank) + ' : stack restant ' + remainingStack + 'bb < 1.5x pot (' + (1.5*turnPot).toFixed(1) + 'bb), d\u00e9j\u00e0 committed';
+        rule = 'Stack < 1.5x pot = TAPIS direct (le pot control n\'a plus de sens, peu importe la texture du board).';
+      } else {
+        const bInfo = boardIsDrawyOnTurn(boardWithTurn);
+        if(bInfo.isDrawy){
+          correct = 'CHECK';
+          const why = [];
+          if(bInfo.flushPossible) why.push('3+ cartes assorties');
+          if(bInfo.straightPossible) why.push('board coordonn\u00e9');
+          detail = 'Turn ' + rankWord(turnCard.rank) + ' : board devient drawy (' + why.join(', ') + ')';
+          rule = 'Stack \u2265 1.5x pot + board drawy = CHECK (pot control).';
+        } else {
+          correct = 'MISE';
+          detail = 'Turn ' + rankWord(turnCard.rank) + ' : board reste sec, stack restant ' + remainingStack + 'bb \u2265 1.5x pot';
+          rule = 'Stack \u2265 1.5x pot + board sec = MISE 75% POT.';
+        }
+      }
+    }
+    return {line, turnCard, turnPot, remainingStack, correct, detail, rule, betPercentLabel};
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+  // ============ MODULE 2 : TURN (Check-Check / J'ai CBET) =================
+  //////////////////////////////////////////////////////////////////////////
+
+  function dealNewTurn(){
+    const deck = shuffle(makeDeck());
+    const board = deck.slice(0,4);
+    const hole = deck.slice(4,6);
+    return {board, hole};
+  }
+
+  function tierWordFor4(tier){ return ['1\u00e8re','2e','3e','4e'][tier-1] || (tier+'e'); }
+
+  function analyzeMadeHandTurn(hole, board){
+    const all = [...hole, ...board];
+    const rc = getRankCounts(all);
+    const tripRanks = Object.keys(rc).map(Number).filter(r=>rc[r]===3);
+    const quadRanks = Object.keys(rc).map(Number).filter(r=>rc[r]===4);
+    const pairRanksAll = Object.keys(rc).map(Number).filter(r=>rc[r]===2);
+    const madeStraight = hasStraightMade(all);
+    const madeFlush = hasFlushMade(all);
+
+    if(quadRanks.length >= 1) return {kind:'quads', rank:quadRanks[0]};
+    if(tripRanks.length >= 1){
+      const otherPair = [...pairRanksAll, ...tripRanks.filter(r=>r!==tripRanks[0])].filter(r=>r!==tripRanks[0]);
+      if(otherPair.length >= 1) return {kind:'fullhouse', tripRank:tripRanks[0], pairRank:otherPair.sort((a,b)=>b-a)[0]};
+      return {kind:'trips', rank:tripRanks[0]};
+    }
+    if(madeFlush && madeStraight) return {kind:'straightflush_maybe'};
+    if(madeFlush){ const fi = flushInfo(all); return {kind:'flush', high:fi.high}; }
+    if(madeStraight){ const high = straightHighCard(all); return {kind:'straight', high}; }
+
+    const isPocketPair = hole[0].rank === hole[1].rank;
+    if(isPocketPair){
+      const pairRank = hole[0].rank;
+      const maxBoardRank = Math.max(...board.map(c=>c.rank));
+      if(pairRank > maxBoardRank) return {kind:'overpair', rank:pairRank};
+      return {kind:'pocket_under', rank:pairRank};
+    }
+
+    const uniqueBoardRanksDesc = Array.from(new Set(board.map(c=>c.rank))).sort((a,b)=>b-a);
+    const matches = hole.filter(c => board.some(bc=>bc.rank===c.rank));
+    if(matches.length === 2){
+      const sorted = matches.map(c=>c.rank).sort((a,b)=>b-a);
+      return {kind:'twopair_real', ranks: sorted};
+    }
+    if(matches.length === 1){
+      const matchedRank = matches[0].rank;
+      const kicker = hole.find(c=>c.rank!==matchedRank).rank;
+      const tier = uniqueBoardRanksDesc.indexOf(matchedRank) + 1;
+      return {kind:'pair_matched', tier, rank:matchedRank, kicker};
+    }
+    return {kind:'air'};
+  }
+
+  function detectQualifyingDrawTurn(hole, board){
+    const all = [...hole, ...board];
+    const bySuit = {};
+    all.forEach(c => { (bySuit[c.suit] = bySuit[c.suit]||[]).push(c); });
+    for(const s of SUITS){
+      const cards = bySuit[s] || [];
+      if(cards.length === 4){
+        const holeCardsOfSuit = hole.filter(c => c.suit === s);
+        if(holeCardsOfSuit.length >= 1){
+          const heroHigh = Math.max(...holeCardsOfSuit.map(c=>c.rank));
+          if(heroHigh <= 11) return 'Tirage couleur, ma carte en main : hauteur ' + rankWord(heroHigh);
+        }
+      }
+    }
+    const uniqueSet = new Set(uniqueRanksWithAceLow(all));
+    for(let low=1; low<=10; low++){
+      const window = [low, low+1, low+2, low+3, low+4];
+      const present = window.filter(r => uniqueSet.has(r));
+      if(present.length === 4){
+        const holeContribRanks = present.filter(r => holeHasRank(hole, r));
+        if(holeContribRanks.length >= 1){
+          const heroHigh = Math.max(...holeContribRanks);
+          if(heroHigh <= 11) return 'Tirage quinte, ma carte en main : hauteur ' + rankWord(heroHigh);
+        }
+      }
+    }
+    return null;
+  }
+
+  function boardInternalPairRuleCheckcheck(board){
+    const counts = getRankCounts(board);
+    const pairedRanks = Object.keys(counts).map(Number).filter(r => counts[r] >= 2);
+    if(pairedRanks.length === 0) return null;
+    const lowPair = pairedRanks.filter(r => r <= 11).sort((a,b)=>b-a)[0];
+    const highPair = pairedRanks.filter(r => r >= 12).sort((a,b)=>b-a)[0];
+    if(lowPair !== undefined) return {cat:2, detail:'Board pair\u00e9 aux ' + rankWord(lowPair) + ' (J- ind\u00e9pendant de ma main)'};
+    if(highPair !== undefined) return {cat:3, detail:'Board pair\u00e9 aux ' + rankWord(highPair) + ' (Q+)'};
+    return null;
+  }
+
+  function fallbackCategoryCheckcheck(hole, board){
+    const draw = detectQualifyingDrawTurn(hole, board);
+    if(draw) return {cat:2, detail: draw};
+    const heroHauteur = Math.max(...hole.map(c=>c.rank));
+    if(heroHauteur >= 12) return {cat:3, detail:'Hauteur ' + rankWord(heroHauteur) + ' (Q+), aucune paire ni tirage'};
+    const boardRule = boardInternalPairRuleCheckcheck(board);
+    if(boardRule) return boardRule;
+    return {cat:3, detail:'Air complet, hauteur ' + rankWord(heroHauteur) + ' (J-), aucun tirage'};
+  }
+
+  function evaluateCheckcheck(hole, board){
+    const a = analyzeMadeHandTurn(hole, board);
+    switch(a.kind){
+      case 'quads': return {cat:1, detail:'Carr\u00e9 de ' + rankWord(a.rank)};
+      case 'fullhouse': return {cat:1, detail:'Full aux ' + rankWord(a.tripRank) + ' par les ' + rankWord(a.pairRank)};
+      case 'trips': return {cat:1, detail:'Brelan de ' + rankWord(a.rank)};
+      case 'straightflush_maybe': return {cat:1, detail:'Couleur + Quinte sur le m\u00eame board'};
+      case 'flush': return {cat:1, detail:'Couleur hauteur ' + rankWord(a.high)};
+      case 'straight': return {cat:1, detail:'Quinte hauteur ' + rankWord(a.high)};
+      case 'twopair_real': return {cat:1, detail:'Deux paires (' + rankWord(a.ranks[0]) + ' et ' + rankWord(a.ranks[1]) + ') faites avec mes 2 cartes'};
+      case 'overpair': return {cat:1, detail:'Overpair (paire de ' + rankWord(a.rank) + ')'};
+      case 'pocket_under': return {cat:3, detail:'Pocket pair de ' + rankWord(a.rank) + ' sous le board : sous le minimum'};
+      case 'pair_matched': {
+        if(a.tier <= 2) return {cat:1, detail: tierWordFor4(a.tier) + ' paire (' + rankWord(a.rank) + '), kicker ' + rankWord(a.kicker)};
+        if(a.tier === 3){
+          if(a.kicker >= 12) return {cat:1, detail:'3e paire (' + rankWord(a.rank) + '), kicker ' + rankWord(a.kicker) + ' (Q+)'};
+          return {cat:3, detail:'3e paire (' + rankWord(a.rank) + '), kicker ' + rankWord(a.kicker) + ' (<Q) : sous le minimum'};
+        }
+        return {cat:3, detail:'4e paire (' + rankWord(a.rank) + '), kicker ' + rankWord(a.kicker) + ' : sous le minimum'};
+      }
+      case 'air':
+      default: return fallbackCategoryCheckcheck(hole, board);
+    }
+  }
+
+  function cbetAirOrCheck(board){
+    const boardRc = getRankCounts(board);
+    const boardHasPair = Object.values(boardRc).some(c=>c>=2);
+    const flopSorted = [board[0].rank, board[1].rank, board[2].rank].sort((a,b)=>a-b);
+    const turnRank = board[3].rank;
+    const turnBeatsTwoSmallest = turnRank > flopSorted[0] && turnRank > flopSorted[1];
+    if(!boardHasPair && turnBeatsTwoSmallest){
+      return {cat:2, detail:'Board non pair\u00e9, turn (' + rankWord(turnRank) + ') bat les 2 plus petites du flop'};
+    }
+    if(boardHasPair) return {cat:3, detail:'Board pair\u00e9 : bluff impossible'};
+    return {cat:3, detail:'Turn (' + rankWord(turnRank) + ') ne bat pas les 2 plus petites du flop : bluff impossible'};
+  }
+
+  function evaluateCbetTurn(hole, board){
+    const a = analyzeMadeHandTurn(hole, board);
+    switch(a.kind){
+      case 'quads': return {cat:1, detail:'Carr\u00e9 de ' + rankWord(a.rank)};
+      case 'fullhouse': return {cat:1, detail:'Full aux ' + rankWord(a.tripRank) + ' par les ' + rankWord(a.pairRank)};
+      case 'trips': return {cat:1, detail:'Brelan de ' + rankWord(a.rank)};
+      case 'straightflush_maybe': return {cat:1, detail:'Couleur + Quinte sur le m\u00eame board'};
+      case 'flush': return {cat:1, detail:'Couleur hauteur ' + rankWord(a.high)};
+      case 'straight': return {cat:1, detail:'Quinte hauteur ' + rankWord(a.high)};
+      case 'twopair_real': return {cat:1, detail:'Deux paires (' + rankWord(a.ranks[0]) + ' et ' + rankWord(a.ranks[1]) + ') faites avec mes 2 cartes'};
+      case 'overpair': return {cat:1, detail:'Overpair (paire de ' + rankWord(a.rank) + ')'};
+      case 'pocket_under': return {cat:3, detail:'Pocket pair de ' + rankWord(a.rank) + ' sous le board : sous le seuil'};
+      case 'pair_matched': {
+        if(a.tier === 1) return {cat:1, detail:'Top paire (' + rankWord(a.rank) + '), kicker ' + rankWord(a.kicker)};
+        if(a.tier === 2){
+          if(a.kicker >= 12) return {cat:1, detail:'2e paire (' + rankWord(a.rank) + '), kicker ' + rankWord(a.kicker) + ' (Q+)'};
+          return {cat:3, detail:'2e paire (' + rankWord(a.rank) + '), kicker ' + rankWord(a.kicker) + ' (<Q) : sous le seuil'};
+        }
+        return {cat:3, detail: tierWordFor4(a.tier) + ' paire (' + rankWord(a.rank) + '), kicker ' + rankWord(a.kicker) + ' : sous le seuil'};
+      }
+      case 'air':
+      default: return cbetAirOrCheck(board);
+    }
+  }
+
+  const TURN_SCENARIOS = {
+    turncheckcheck: {
+      title: 'Turn : Check-Check',
+      subtitle: '2 joueurs au total : Vilain check flop, je check flop',
+      evaluate: evaluateCheckcheck,
+      ruleText: {1:'= TURN CHECK VALUE = 75%', 2:'= TURN CHECK BLUFF = 75%', 3:'= TURN CHECK : CHECK'},
+      correct: {1:'75', 2:'75', 3:'CHECK'}
+    },
+    turncbet: {
+      title: "Turn : J'ai CBET au flop",
+      subtitle: "J'ai cbet le flop, Vilain call",
+      evaluate: evaluateCbetTurn,
+      ruleText: {1:'= Turn CBET Value : 85%', 2:'= Turn CBET Bluff : 55%', 3:'= Turn CBET : CHECK'},
+      correct: {1:'85', 2:'55', 3:'CHECK'}
+    }
+  };
+
+  //////////////////////////////////////////////////////////////////////////
+  // ==================== MODULE 3 : JE CBET (flop) ==========================
+  //////////////////////////////////////////////////////////////////////////
+
+  function dealNewCbetIcb(){
+    const deck = shuffle(makeDeck());
+    const flop = deck.slice(0,3);
+    const hole = deck.slice(3,5);
+    return {flop, hole};
+  }
+
+  function categorizeBoardCbetIcb(flop){
+    const rc = getRankCounts(flop);
+    if(Object.values(rc).some(c => c >= 2)) return 'double_triplette';
+    const suits = new Set(flop.map(c=>c.suit));
+    if(suits.size === 1) return 'monocolore';
+    if(flop.some(c => c.rank >= 11)) return 'broadway';
+    return 'sec';
+  }
+
+  function getFlushDetailCbetIcb(hole, flop){
+    // Renvoie {made:bool, hauteur, draw:bool} uniquement pertinent si board monocolore
+    const suit = flop[0].suit;
+    const holeOfSuit = hole.filter(c => c.suit === suit);
+    if(holeOfSuit.length === 2){
+      return {made:true, hauteur: Math.max(...holeOfSuit.map(c=>c.rank)), draw:false};
+    }
+    if(holeOfSuit.length === 1){
+      return {made:false, hauteur:null, draw:true};
+    }
+    return {made:false, hauteur:null, draw:false};
+  }
+
+  function isTopPairOrBetterCbet(made){
+    if(['quads','fullhouse','trips','straight','flush','twopair_real','overpair'].includes(made.kind)) return true;
+    if(made.kind === 'pair_matched' && made.tier === 1) return true;
+    return false;
+  }
+  function isTopPairOrBetterCbetNoFlush(made){
+    // Variante pour board monocolore : exclut 'flush' pour laisser passer les regles
+    // specifiques "Couleur Hauteur 10-/10+" qui suivent juste apres dans l'arbre.
+    if(['quads','fullhouse','trips','straight','twopair_real','overpair'].includes(made.kind)) return true;
+    if(made.kind === 'pair_matched' && made.tier === 1) return true;
+    return false;
+  }
+  function isTier2Cbet(made){ return made.kind === 'pair_matched' && made.tier === 2; }
+  function isTier3Cbet(made){ return made.kind === 'pair_matched' && made.tier === 3; }
+  function isAirHauteurAKCbet(made, hole){
+    if(made.kind !== 'air') return false;
+    const high = Math.max(...hole.map(c=>c.rank));
+    return high === 13 || high === 14;
+  }
+  function isGoodTopPairCbet(made){ return made.kind === 'pair_matched' && made.tier === 1 && made.kicker >= 10; }
+  function isBadTopPairCbet(made){ return made.kind === 'pair_matched' && made.tier === 1 && made.kicker < 10; }
+  function isFullOrCarreCbet(made){ return made.kind === 'quads' || made.kind === 'fullhouse'; }
+
+  function describeMadeCbetIcb(made, hole){
+    switch(made.kind){
+      case 'quads': return 'Carr\u00e9 de ' + rankWord(made.rank);
+      case 'fullhouse': return 'Full aux ' + rankWord(made.tripRank) + ' par les ' + rankWord(made.pairRank);
+      case 'trips': return 'Brelan de ' + rankWord(made.rank);
+      case 'straight': return 'Quinte hauteur ' + rankWord(made.high);
+      case 'flush': return 'Couleur hauteur ' + rankWord(made.high);
+      case 'twopair_real': return 'Deux paires (' + rankWord(made.ranks[0]) + ' et ' + rankWord(made.ranks[1]) + ')';
+      case 'overpair': return 'Overpair (paire de ' + rankWord(made.rank) + ')';
+      case 'pocket_under': return 'Pocket pair de ' + rankWord(made.rank) + ' sous le board';
+      case 'pair_matched': return tierWordFor3(made.tier) + ' paire (' + rankWord(made.rank) + '), kicker ' + rankWord(made.kicker);
+      case 'air': default: return 'Air, hauteur ' + rankWord(Math.max(...hole.map(c=>c.rank)));
+    }
+  }
+
+  const CBET_ICB_RULES = {
+    potlimp: {
+      double_triplette: [
+        {test:(a)=>isFullOrCarreCbet(a), action:'CHECK', why:'Full ou carr\u00e9 = CHECK.'},
+        {action:'50', why:'Le reste sur board pair\u00e9/brelan (pot limp\u00e9) = 50%.'}
+      ],
+      monocolore: [
+        {test:(a)=>isTopPairOrBetterCbetNoFlush(a), action:'75', why:'Top paire ou mieux = 75%.'},
+        {test:(a,fl)=>fl.made && fl.hauteur<=10, action:'75', why:'Couleur hauteur 10- = 75%.'},
+        {test:(a,fl)=>fl.made && fl.hauteur>=11, action:'50', why:'Couleur hauteur 10+ = 50%.'},
+        {test:(a)=>isTier2Cbet(a), action:'50', why:'2e paire = 50%.'},
+        {test:(a,fl,hole)=>isTier3Cbet(a)||isAirHauteurAKCbet(a,hole), action:'CHECK', why:'3e paire ou hauteur As/Roi = CHECK.'},
+        {action:'50', why:'Le reste (board monocolore, pot limp\u00e9) = 50% (MinBet).'}
+      ],
+      broadway: [
+        {action:'50', why:'Board avec A/K/Q/J : tout = 50% (pot limp\u00e9).'}
+      ],
+      sec: [
+        {test:(a)=>isTopPairOrBetterCbet(a), action:'75', why:'Top paire ou mieux = 75%.'},
+        {test:(a)=>isTier2Cbet(a), action:'50', why:'2e paire = 50%.'},
+        {test:(a,fl,hole)=>isTier3Cbet(a)||isAirHauteurAKCbet(a,hole), action:'CHECK', why:'3e paire ou hauteur As/Roi = CHECK.'},
+        {action:'50', why:'Le reste (board sec, pot limp\u00e9) = 50% (MinBet).'}
+      ]
+    },
+    potraise: {
+      double_triplette: [
+        {test:(a)=>isFullOrCarreCbet(a), action:'CHECK', why:'Full ou carr\u00e9 = CHECK.'},
+        {action:'33', why:'Le reste sur board pair\u00e9/brelan (pot rais\u00e9) = 33%.'}
+      ],
+      monocolore: [
+        {test:(a)=>isTopPairOrBetterCbetNoFlush(a), action:'75', why:'Top paire ou mieux = 75%.'},
+        {test:(a,fl)=>fl.made && fl.hauteur<=10, action:'75', why:'Couleur hauteur 10- = 75%.'},
+        {test:(a,fl)=>fl.made && fl.hauteur>=11, action:'35', why:'Couleur hauteur 10+ = 35%.'},
+        {test:(a,fl)=>fl.draw, action:'25', why:'Tirage couleur = 25%.'},
+        {test:(a)=>isTier2Cbet(a), action:'25', why:'2e paire = 25%.'},
+        {test:(a,fl,hole)=>isTier3Cbet(a)||isAirHauteurAKCbet(a,hole), action:'CHECK', why:'3e paire ou hauteur As/Roi = CHECK.'},
+        {action:'25', why:'Le reste (board monocolore, pot rais\u00e9) = 25% (MinBet).'}
+      ],
+      broadway: [
+        {test:(a)=>isTopPairOrBetterCbet(a), action:'35', why:'Top paire ou mieux = 35%.'},
+        {action:'25', why:'Le reste (A/K/Q/J au board, pot rais\u00e9) = 25% (MinBet).'}
+      ],
+      sec: [
+        {test:(a)=>isGoodTopPairCbet(a), action:'75', why:'Bonne top paire (kicker 10+) = 75%.'},
+        {test:(a)=>isBadTopPairCbet(a), action:'35', why:'Mauvaise top paire (kicker <10) = 35%.'},
+        {test:(a)=>isTier2Cbet(a), action:'25', why:'2e paire = 25%.'},
+        {test:(a,fl,hole)=>isTier3Cbet(a)||isAirHauteurAKCbet(a,hole), action:'CHECK', why:'3e paire ou hauteur As/Roi = CHECK.'},
+        {action:'25', why:'Le reste (board sec, pot rais\u00e9) = 25% (MinBet).'}
+      ]
+    },
+    potbtn: {
+      double_triplette: [
+        {test:(a)=>isFullOrCarreCbet(a), action:'CHECK', why:'Full ou carr\u00e9 = CHECK.'},
+        {action:'33', why:'Le reste sur board pair\u00e9/brelan (BTN) = 33%.'}
+      ],
+      monocolore: [
+        {test:(a)=>isTopPairOrBetterCbetNoFlush(a), action:'75', why:'Top paire ou mieux = 75%.'},
+        {test:(a,fl)=>fl.made && fl.hauteur<=10, action:'75', why:'Couleur hauteur 10- = 75%.'},
+        {test:(a,fl)=>fl.made && fl.hauteur>=11, action:'35', why:'Couleur hauteur 10+ = 35%.'},
+        {action:'25', why:'Le reste (board monocolore, BTN) = 25% (MinBet).'}
+      ],
+      broadway: [
+        {test:(a)=>isTopPairOrBetterCbet(a), action:'35', why:'Top paire ou mieux = 35%.'},
+        {action:'25', why:'Le reste (A/K/Q/J au board, BTN) = 25% (MinBet).'}
+      ],
+      sec: [
+        {test:(a)=>isGoodTopPairCbet(a), action:'75', why:'Bonne top paire (kicker 10+) = 75%.'},
+        {test:(a)=>isBadTopPairCbet(a), action:'35', why:'Mauvaise top paire (kicker <10) = 35%.'},
+        {action:'25', why:'Le reste (board sec, BTN) = 25% (MinBet).'}
+      ]
+    }
+  };
+
+  const CBET_ICB_BOARD_LABEL = {
+    double_triplette: 'Board pair\u00e9 / brelan',
+    monocolore: 'Board monocolore',
+    broadway: 'Board avec A/K/Q/J',
+    sec: 'Board sec'
+  };
+
+  function evaluateCbetIcb(potVariant, hole, flop){
+    const made = analyzeFlopHand(hole, flop);
+    const boardCat = categorizeBoardCbetIcb(flop);
+    const flushDetail = boardCat === 'monocolore' ? getFlushDetailCbetIcb(hole, flop) : {made:false, hauteur:null, draw:false};
+    const rules = CBET_ICB_RULES[potVariant][boardCat];
+
+    let matched = null;
+    for(const r of rules){
+      if(!r.test || r.test(made, flushDetail, hole)){ matched = r; break; }
+    }
+
+    const detail = CBET_ICB_BOARD_LABEL[boardCat] + ' | ' + describeMadeCbetIcb(made, hole) +
+      (flushDetail.draw ? ' | Tirage couleur' : '') +
+      (flushDetail.made ? ' | Couleur faite hauteur ' + rankWord(flushDetail.hauteur) : '');
+
+    return {correct: matched.action, detail, rule: matched.why};
+  }
+
+  const CBET_ICB_META = {
+    potlimp: {title:'Flop : Je CBET \u2014 Pot limp\u00e9', subtitle:"J'ai l'initiative, pot limp\u00e9 (SB ou BB)"},
+    potraise: {title:'Flop : Je CBET \u2014 Pot rais\u00e9', subtitle:"J'ai l'initiative, pot rais\u00e9 (SB ou BB)"},
+    potbtn: {title:'Flop : Je CBET \u2014 BTN', subtitle:"J'ai l'initiative, je suis au BTN"}
+  };
+
+
+  //////////////////////////////////////////////////////////////////////////
+  // ========================= APP STATE ====================================
+  //////////////////////////////////////////////////////////////////////////
+
+  let stats = {
+    flopcbet: { flopPart:{score:0,total:0}, turnPart:{score:0,total:0} },
+    cbet: { score:0, total:0 },
+    turncbet: { score:0, total:0 },
+    turncheckcheck: { score:0, total:0 }
+  };
+  let activeScenario = 'flopcbet';
+  let activeCbetVariant = 'potlimp';
+
+  // Flop CBET runtime state
+  let cbetDeal = null, cbetAnswer = null, cbetAnswered = false, awaitingSizing = false;
+  let turnAnswer = null, turnAnswered = false;
+
+  // Turn scenario runtime state
+  let turnDeal = null, turnScenAnswer = null, turnScenAnswered = false;
+
+  // Je CBET (flop) runtime state
+  let cbetIcbDeal = null, cbetIcbAnswer = null, cbetIcbAnswered = false;
+
+  function renderCard(card, cls){
+    const div = document.createElement('div');
+    div.className = 'card ' + SUIT_COLOR[card.suit] + (cls ? ' ' + cls : '');
+    div.innerHTML =
+      '<div class="rank">' + rankLabel(card.rank) + '</div>' +
+      '<div class="suit-top">' + SUIT_SYMBOL[card.suit] + '</div>' +
+      '<div class="suit-big">' + SUIT_SYMBOL[card.suit] + '</div>';
+    return div;
+  }
+
+  function resetResultBox(){
+    const box = document.getElementById('resultBox');
+    box.className = 'result-box empty';
+    box.textContent = 'Clique sur un bouton pour valider ta décision.';
+  }
+
+  // ---------- Scoreboard / stats ----------
+
+  function getCurrentScoreTotal(){
+    if(activeScenario === 'flopcbet'){
+      const fp = stats.flopcbet.flopPart, tp = stats.flopcbet.turnPart;
+      return {score: fp.score + tp.score, total: fp.total + tp.total};
+    }
+    return stats[activeScenario];
+  }
+
+  function updateScoreboard(){
+    const {score, total} = getCurrentScoreTotal();
+    document.getElementById('scoreDisplay').textContent = 'Score ' + score + '/' + total;
+    const rate = total === 0 ? 0 : Math.round((score/total)*100);
+    document.getElementById('rateDisplay').textContent = rate + '%';
+    renderStatsPanel();
+  }
+
+  function pct(score, total){ return total === 0 ? 0 : Math.round((score/total)*100); }
+
+  function renderStatsPanel(){
+    const panel = document.getElementById('statsPanel');
+    const flopCbetScore = stats.flopcbet.flopPart.score, flopCbetTotal = stats.flopcbet.flopPart.total;
+    const jeCbetScore = stats.cbet.score, jeCbetTotal = stats.cbet.total;
+    const flopScore = flopCbetScore + jeCbetScore, flopTotal = flopCbetTotal + jeCbetTotal;
+    const turnFromCbet = stats.flopcbet.turnPart;
+    const turnTotalScore = turnFromCbet.score + stats.turncbet.score + stats.turncheckcheck.score;
+    const turnTotalTotal = turnFromCbet.total + stats.turncbet.total + stats.turncheckcheck.total;
+
+    panel.innerHTML =
+      '<h3>Statistiques globales</h3>' +
+      '<div class="stats-row main"><span class="stats-name">FLOP</span><span class="stats-nums">' + flopScore + '/' + flopTotal + ' (' + pct(flopScore,flopTotal) + '%)</span></div>' +
+      '<div class="stats-row"><span class="stats-name">↳ Flop : On me CBET</span><span class="stats-nums">' + flopCbetScore + '/' + flopCbetTotal + ' (' + pct(flopCbetScore,flopCbetTotal) + '%)</span></div>' +
+      '<div class="stats-row"><span class="stats-name">↳ Flop : Je CBET</span><span class="stats-nums">' + jeCbetScore + '/' + jeCbetTotal + ' (' + pct(jeCbetScore,jeCbetTotal) + '%)</span></div>' +
+      '<div class="stats-row main" style="margin-top:10px;"><span class="stats-name">TURN</span><span class="stats-nums">' + turnTotalScore + '/' + turnTotalTotal + ' (' + pct(turnTotalScore,turnTotalTotal) + '%)</span></div>' +
+      '<div class="stats-row"><span class="stats-name">↳ Turn : J\'ai CBET</span><span class="stats-nums">' + stats.turncbet.score + '/' + stats.turncbet.total + ' (' + pct(stats.turncbet.score,stats.turncbet.total) + '%)</span></div>' +
+      '<div class="stats-row"><span class="stats-name">↳ Turn : Check-Check</span><span class="stats-nums">' + stats.turncheckcheck.score + '/' + stats.turncheckcheck.total + ' (' + pct(stats.turncheckcheck.score,stats.turncheckcheck.total) + '%)</span></div>' +
+      '<div class="stats-row"><span class="stats-name">↳ Turn (2e partie du Flop CBET)</span><span class="stats-nums">' + turnFromCbet.score + '/' + turnFromCbet.total + ' (' + pct(turnFromCbet.score,turnFromCbet.total) + '%)</span></div>' +
+      '<div class="stats-note"><b>Repère de progression :</b> vise environ <b>150 mains</b> sur Flop et <b>250-300 mains</b> sur Turn (qui regroupe plusieurs sous-logiques différentes) avant de considérer ton niveau comme statistiquement représentatif. En dessous de 50 mains, le taux de réussite est encore trop bruité pour être fiable.</div>';
+  }
+
+  function setStatsToggle(){
+    document.getElementById('statsPanel').classList.toggle('open');
+  }
+
+  // ---------- View switching ----------
+
+  function hideAllViews(){
+    document.getElementById('cbetView').classList.add('hidden');
+    document.getElementById('turnView').classList.add('hidden');
+    document.getElementById('cbetIcbView').classList.add('hidden');
+    document.getElementById('turnDivider').classList.add('hidden');
+    document.getElementById('turnButtons').classList.add('hidden');
+    document.getElementById('cbetIcbDivider').classList.add('hidden');
+    document.getElementById('cbetIcbButtons').classList.add('hidden');
+    document.getElementById('mainButtons').classList.add('hidden');
+    document.getElementById('cbetVariantRow').classList.add('hidden');
+  }
+  function showCbetView(){
+    hideAllViews();
+    document.getElementById('cbetView').classList.remove('hidden');
+    document.getElementById('mainButtons').classList.remove('hidden');
+  }
+  function showTurnView(){
+    hideAllViews();
+    document.getElementById('turnView').classList.remove('hidden');
+    document.getElementById('turnDivider').classList.remove('hidden');
+    document.getElementById('turnButtons').classList.remove('hidden');
+    document.getElementById('sizingPanel').style.display = 'none';
+    document.getElementById('turnPanel').style.display = 'none';
+  }
+  function showCbetIcbView(){
+    hideAllViews();
+    document.getElementById('cbetIcbView').classList.remove('hidden');
+    document.getElementById('cbetIcbDivider').classList.remove('hidden');
+    document.getElementById('cbetIcbButtons').classList.remove('hidden');
+    document.getElementById('cbetVariantRow').classList.remove('hidden');
+  }
+
+  // ---------- Flop CBET rendering / handlers ----------
+
+  function renderCbetDeal(deal){
+    const boardRow = document.getElementById('cbetBoardRow');
+    const handRow = document.getElementById('cbetHandRow');
+    boardRow.innerHTML = ''; handRow.innerHTML = '';
+    deal.flop.forEach(c => boardRow.appendChild(renderCard(c, '')));
+    deal.hole.forEach(c => handRow.appendChild(renderCard(c, 'hero')));
+
+    const potTypeLabel = deal.potType === 'limp' ? '(limp\u00e9)' : '(rais\u00e9)';
+    document.getElementById('potTypeTag').textContent = potTypeLabel;
+    document.getElementById('potValue').textContent = fmtBB(deal.preflopPot);
+    document.getElementById('villainChip').textContent = fmtBB(deal.cbetAmount) + (deal.cbetCapped ? ' (all-in)' : '');
+    document.getElementById('heroStack').innerHTML = 'Stack : <b>' + deal.stackBB + 'bb</b>';
+  }
+
+  const CBET_LABELS = {RAISE:'Raise vs CBet', BLUFF:'Bluff vs CBet', CALL:'Call CBet', FOLD:'Se coucher'};
+
+  function newCbetDeal(){
+    cbetDeal = dealNewFlopCbet();
+    cbetAnswer = decideFlopCbet(cbetDeal);
+    cbetAnswered = false; awaitingSizing = false; turnAnswer = null; turnAnswered = false;
+    document.getElementById('sizingPanel').style.display = 'none';
+    document.getElementById('turnPanel').style.display = 'none';
+    document.querySelectorAll('#sizingPanel .choice-btn, #turnPanel .choice-btn').forEach(b=>{b.disabled=false; b.classList.remove('correct-flash','wrong-flash');});
+    renderCbetDeal(cbetDeal);
+    resetResultBox();
+    document.querySelectorAll('#mainButtons .choice-btn').forEach(btn => { btn.disabled = false; btn.classList.remove('correct-flash','wrong-flash'); });
+  }
+
+  function handleMainChoice(value){
+    if(cbetAnswered) return;
+    cbetAnswered = true;
+    stats.flopcbet.flopPart.total++;
+    const isCorrect = (value === cbetAnswer.correct);
+    if(isCorrect) stats.flopcbet.flopPart.score++;
+    updateScoreboard();
+
+    const box = document.getElementById('resultBox');
+    box.className = 'result-box ' + (isCorrect ? 'win' : 'lose');
+    box.innerHTML = '<span class="verdict">' + (isCorrect ? 'Validé ✓' : 'Raté ✗') + '</span>'
+      + '<span class="detail-line">Tu as : ' + cbetAnswer.detail + '</span>'
+      + '<span class="why-line">' + cbetAnswer.rule + (isCorrect ? '' : ' Bonne réponse : ' + CBET_LABELS[cbetAnswer.correct] + '.') + '</span>';
+
+    document.querySelectorAll('#mainButtons .choice-btn').forEach(btn => {
+      btn.disabled = true;
+      if(btn.dataset.value === cbetAnswer.correct) btn.classList.add('correct-flash');
+      else if(btn.dataset.value === value && !isCorrect) btn.classList.add('wrong-flash');
+    });
+
+    if(isCorrect && cbetAnswer.correct === 'BLUFF'){
+      awaitingSizing = true;
+      document.getElementById('sizingPanel').style.display = 'block';
+    }
+    if(isCorrect && cbetAnswer.correct === 'RAISE'){
+      const heroRaiseAmount = Math.min(3 * cbetDeal.cbetAmount, cbetDeal.stackBB);
+      startTurnPhase('value', heroRaiseAmount);
+    }
+  }
+
+  function handleSizingChoice(value){
+    if(!awaitingSizing) return;
+    awaitingSizing = false;
+    stats.flopcbet.flopPart.total++;
+    const isCorrect = (value === cbetAnswer.bluffSizing);
+    if(isCorrect) stats.flopcbet.flopPart.score++;
+    updateScoreboard();
+
+    const box = document.getElementById('resultBox');
+    box.className = 'result-box ' + (isCorrect ? 'win' : 'lose');
+    box.innerHTML += '<br><span class="verdict">' + (isCorrect ? 'Sizing validé ✓' : 'Sizing raté ✗') + '</span>'
+      + '<span class="why-line">Stack ' + cbetDeal.stackBB + 'bb \u2192 taille correcte : ' + cbetAnswer.bluffSizing + 'bb (< 10bb = 2.2bb, \u2265 10bb = 2.5bb)</span>';
+
+    document.querySelectorAll('#sizingPanel .choice-btn').forEach(btn => {
+      btn.disabled = true;
+      if(btn.dataset.size === cbetAnswer.bluffSizing) btn.classList.add('correct-flash');
+      else if(btn.dataset.size === value && !isCorrect) btn.classList.add('wrong-flash');
+    });
+
+    startTurnPhase('bluff', parseFloat(value));
+  }
+
+  function startTurnPhase(line, heroRaiseAmount){
+    turnAnswer = computeTurnDecisionFlopCbet(line, heroRaiseAmount, cbetDeal);
+    turnAnswered = false;
+
+    const boardRow = document.getElementById('cbetBoardRow');
+    boardRow.appendChild(renderCard(turnAnswer.turnCard, 'turn-card'));
+
+    document.getElementById('potValue').textContent = fmtBB(turnAnswer.turnPot);
+    document.getElementById('villainChip').textContent = '-';
+    document.getElementById('heroStack').innerHTML = 'Stack : <b>' + turnAnswer.remainingStack + 'bb</b>';
+
+    document.getElementById('turnLabel').textContent = (line === 'bluff' ? 'Bluff validé, la turn tombe...' : 'Raise validé, la turn tombe...');
+    document.getElementById('turnMiseBtn').textContent = 'Mise ' + turnAnswer.betPercentLabel + '% pot';
+    document.getElementById('turnPanel').style.display = 'block';
+  }
+
+  function handleTurnChoice(value){
+    if(turnAnswered) return;
+    turnAnswered = true;
+    stats.flopcbet.turnPart.total++;
+    const isCorrect = (value === turnAnswer.correct);
+    if(isCorrect) stats.flopcbet.turnPart.score++;
+    updateScoreboard();
+
+    const box = document.getElementById('resultBox');
+    box.className = 'result-box ' + (isCorrect ? 'win' : 'lose');
+    box.innerHTML += '<br><span class="verdict">' + (isCorrect ? 'Turn validé ✓' : 'Turn raté ✗') + '</span>'
+      + '<span class="detail-line">' + turnAnswer.detail + '</span>'
+      + '<span class="why-line">' + turnAnswer.rule + (isCorrect ? '' : ' Bonne réponse : ' + turnAnswer.correct + '.') + '</span>';
+
+    document.querySelectorAll('#turnPanel .choice-btn').forEach(btn => {
+      btn.disabled = true;
+      if(btn.dataset.turn === turnAnswer.correct) btn.classList.add('correct-flash');
+      else if(btn.dataset.turn === value && !isCorrect) btn.classList.add('wrong-flash');
+    });
+  }
+
+  // ---------- Turn scenarios (checkcheck / cbet) rendering / handlers ----------
+
+  function renderTurnDeal(deal){
+    const boardRow = document.getElementById('turnBoardRow');
+    const boardTags = document.getElementById('turnBoardTags');
+    const handRow = document.getElementById('turnHandRow');
+    boardRow.innerHTML = ''; boardTags.innerHTML = ''; handRow.innerHTML = '';
+    deal.board.forEach((c, i) => {
+      const isTurn = (i === 3);
+      boardRow.appendChild(renderCard(c, isTurn ? 'turn-card' : ''));
+      const tag = document.createElement('div');
+      tag.className = 'board-tag' + (isTurn ? ' turn-tag' : '');
+      tag.textContent = isTurn ? 'TURN' : 'Flop';
+      boardTags.appendChild(tag);
+    });
+    deal.hole.forEach(c => handRow.appendChild(renderCard(c, 'hero')));
+  }
+
+  function newTurnDeal(){
+    turnDeal = dealNewTurn();
+    const config = TURN_SCENARIOS[activeScenario];
+    const evalResult = config.evaluate(turnDeal.hole, turnDeal.board);
+    turnScenAnswer = {
+      detail: evalResult.detail,
+      correct: config.correct[evalResult.cat],
+      ruleText: config.ruleText[evalResult.cat]
+    };
+    turnScenAnswered = false;
+    renderTurnDeal(turnDeal);
+    resetResultBox();
+    document.querySelectorAll('#turnButtons .choice-btn').forEach(btn => { btn.disabled = false; btn.classList.remove('correct-flash','wrong-flash'); });
+  }
+
+  function handleTurnScenarioChoice(value){
+    if(turnScenAnswered) return;
+    turnScenAnswered = true;
+    const s = stats[activeScenario];
+    s.total++;
+    const isCorrect = (value === turnScenAnswer.correct);
+    if(isCorrect) s.score++;
+    updateScoreboard();
+
+    const box = document.getElementById('resultBox');
+    box.className = 'result-box ' + (isCorrect ? 'win' : 'lose');
+    box.innerHTML = '<span class="verdict">' + (isCorrect ? 'Validé ✓' : 'Raté ✗') + '</span>'
+      + '<span class="detail-line">Tu as : ' + turnScenAnswer.detail + '</span>'
+      + turnScenAnswer.ruleText;
+
+    document.querySelectorAll('#turnButtons .choice-btn').forEach(btn => {
+      btn.disabled = true;
+      if(btn.dataset.value === turnScenAnswer.correct) btn.classList.add('correct-flash');
+      else if(btn.dataset.value === value && !isCorrect) btn.classList.add('wrong-flash');
+    });
+  }
+
+  // ---------- Je CBET (flop) rendering / handlers ----------
+
+  function renderCbetIcbDeal(deal){
+    const boardRow = document.getElementById('cbetIcbBoardRow');
+    const handRow = document.getElementById('cbetIcbHandRow');
+    boardRow.innerHTML = ''; handRow.innerHTML = '';
+    deal.flop.forEach(c => boardRow.appendChild(renderCard(c, '')));
+    deal.hole.forEach(c => handRow.appendChild(renderCard(c, 'hero')));
+  }
+
+  function newCbetIcbDeal(){
+    cbetIcbDeal = dealNewCbetIcb();
+    cbetIcbAnswer = evaluateCbetIcb(activeCbetVariant, cbetIcbDeal.hole, cbetIcbDeal.flop);
+    cbetIcbAnswered = false;
+    renderCbetIcbDeal(cbetIcbDeal);
+    resetResultBox();
+    document.querySelectorAll('#cbetIcbButtons .choice-btn').forEach(btn => { btn.disabled = false; btn.classList.remove('correct-flash','wrong-flash'); });
+  }
+
+  function handleCbetIcbChoice(value){
+    if(cbetIcbAnswered) return;
+    cbetIcbAnswered = true;
+    stats.cbet.total++;
+    const isCorrect = (value === cbetIcbAnswer.correct);
+    if(isCorrect) stats.cbet.score++;
+    updateScoreboard();
+
+    const box = document.getElementById('resultBox');
+    box.className = 'result-box ' + (isCorrect ? 'win' : 'lose');
+    box.innerHTML = '<span class="verdict">' + (isCorrect ? 'Validé ✓' : 'Raté ✗') + '</span>'
+      + '<span class="detail-line">Tu as : ' + cbetIcbAnswer.detail + '</span>'
+      + '<span class="why-line">' + cbetIcbAnswer.rule + (isCorrect ? '' : ' Bonne réponse : ' + (cbetIcbAnswer.correct === 'CHECK' ? 'CHECK' : cbetIcbAnswer.correct + '%') + '.') + '</span>';
+
+    document.querySelectorAll('#cbetIcbButtons .choice-btn').forEach(btn => {
+      btn.disabled = true;
+      if(btn.dataset.value === cbetIcbAnswer.correct) btn.classList.add('correct-flash');
+      else if(btn.dataset.value === value && !isCorrect) btn.classList.add('wrong-flash');
+    });
+  }
+
+  document.getElementById('cbetVariantSelect').addEventListener('change', (e) => {
+    activeCbetVariant = e.target.value;
+    document.getElementById('scenarioTitle').textContent = CBET_ICB_META[activeCbetVariant].title;
+    document.getElementById('scenarioSubtitle').textContent = CBET_ICB_META[activeCbetVariant].subtitle;
+    newCbetIcbDeal();
+  });
+
+  document.querySelectorAll('#cbetIcbButtons .choice-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleCbetIcbChoice(btn.dataset.value));
+  });
+
+  // ---------- Scenario switching / global controls ----------
+
+  const SCENARIO_META = {
+    flopcbet: {title:"Flop : On me CBET", subtitle:"L'adversaire c-bet le flop"},
+    turncbet: TURN_SCENARIOS.turncbet,
+    turncheckcheck: TURN_SCENARIOS.turncheckcheck
+  };
+
+  function switchScenario(name){
+    activeScenario = name;
+    document.getElementById('scenarioSelect').value = name;
+    if(name === 'cbet'){
+      document.getElementById('cbetVariantSelect').value = activeCbetVariant;
+      document.getElementById('scenarioTitle').textContent = CBET_ICB_META[activeCbetVariant].title;
+      document.getElementById('scenarioSubtitle').textContent = CBET_ICB_META[activeCbetVariant].subtitle;
+    } else {
+      document.getElementById('scenarioTitle').textContent = SCENARIO_META[name].title;
+      document.getElementById('scenarioSubtitle').textContent = SCENARIO_META[name].subtitle;
+    }
+    updateScoreboard();
+    dealForCurrentScenario();
+  }
+
+  function dealForCurrentScenario(){
+    if(activeScenario === 'flopcbet'){
+      showCbetView();
+      newCbetDeal();
+    } else if(activeScenario === 'cbet'){
+      showCbetIcbView();
+      newCbetIcbDeal();
+    } else {
+      showTurnView();
+      newTurnDeal();
+    }
+  }
+
+  document.getElementById('scenarioSelect').addEventListener('change', (e) => switchScenario(e.target.value));
+
+  document.querySelectorAll('#mainButtons .choice-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleMainChoice(btn.dataset.value));
+  });
+  document.querySelectorAll('#sizingPanel .choice-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleSizingChoice(btn.dataset.size));
+  });
+  document.querySelectorAll('#turnPanel .choice-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleTurnChoice(btn.dataset.turn));
+  });
+  document.querySelectorAll('#turnButtons .choice-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleTurnScenarioChoice(btn.dataset.value));
+  });
+
+  document.getElementById('dealBtn').addEventListener('click', dealForCurrentScenario);
+
+  document.getElementById('resetSituationBtn').addEventListener('click', () => {
+    if(activeScenario === 'flopcbet'){
+      stats.flopcbet = { flopPart:{score:0,total:0}, turnPart:{score:0,total:0} };
+    } else {
+      stats[activeScenario] = {score:0, total:0};
+    }
+    updateScoreboard();
+  });
+
+  document.getElementById('resetAllBtn').addEventListener('click', () => {
+    stats = {
+      flopcbet: { flopPart:{score:0,total:0}, turnPart:{score:0,total:0} },
+      cbet: {score:0, total:0},
+      turncbet: {score:0, total:0},
+      turncheckcheck: {score:0, total:0}
+    };
+    updateScoreboard();
+  });
+
+  document.getElementById('statsToggleBtn').addEventListener('click', setStatsToggle);
+
+  // init
+  switchScenario('flopcbet');
+})();
+</script>
+
+</body>
+</html>
